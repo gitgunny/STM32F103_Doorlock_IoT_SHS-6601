@@ -1,0 +1,9 @@
+# STM32CubeIDE
+.settings
+Debug
+Startup
+.cproject
+.mxproject
+.project
+*.ld
+*.launch
