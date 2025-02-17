@@ -48,9 +48,9 @@ UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
-uint8_t uart1_data1[7] = {0xAA, 0x56, 0x03, 0x5A, 0x00, 0x00, 0x5A};
+uint8_t uart1_data1[7] = {0xAA, 0xCA, 0x03, 0x5A, 0x00, 0x00, 0x5A};
 uint8_t uart3_data1[1] = {0xE0};
-uint8_t uart3_data2[7] = {0xAA, 0x7C, 0x03, 0x53, 0x4C, 0x00, 0x1F};
+uint8_t uart3_data2[7] = {0xAA, 0x31, 0x03, 0x53, 0x4C, 0x00, 0x1F};
 _Bool button_flag;
 /* USER CODE END PV */
 
@@ -108,7 +108,8 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-  HAL_GPIO_WritePin(Origin_Sig_GPIO_Port, Origin_Sig_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(Origin_Rx_GPIO_Port, Origin_Rx_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(Origin_Tx_GPIO_Port, Origin_Tx_Pin, GPIO_PIN_SET);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -424,10 +425,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, LD2_Pin|Fake_Rx_Pin|Fake_Tx_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, Origin_Sig_Pin|Fake_Sig_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, Origin_Rx_Pin|Origin_Tx_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -439,11 +440,18 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = LD2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : Origin_Sig_Pin Fake_Sig_Pin */
-  GPIO_InitStruct.Pin = Origin_Sig_Pin|Fake_Sig_Pin;
+  /*Configure GPIO pins : Fake_Rx_Pin Fake_Tx_Pin */
+  GPIO_InitStruct.Pin = Fake_Rx_Pin|Fake_Tx_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : Origin_Rx_Pin Origin_Tx_Pin */
+  GPIO_InitStruct.Pin = Origin_Rx_Pin|Origin_Tx_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
@@ -460,8 +468,11 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	if (GPIO_Pin == B1_Pin && button_flag == 0) {
-		HAL_GPIO_WritePin(Origin_Sig_GPIO_Port, Origin_Sig_Pin, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(Fake_Sig_GPIO_Port, Fake_Sig_Pin, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(Origin_Rx_GPIO_Port, Origin_Rx_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(Origin_Tx_GPIO_Port, Origin_Tx_Pin, GPIO_PIN_RESET);
+
+		HAL_GPIO_WritePin(Fake_Rx_GPIO_Port, Fake_Rx_Pin, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(Fake_Tx_GPIO_Port, Fake_Tx_Pin, GPIO_PIN_SET);
 
 		HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_1);
 		HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_2);
@@ -497,8 +508,11 @@ void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim) {
 			HAL_TIM_OC_Stop_IT(&htim3, TIM_CHANNEL_3);
 			HAL_TIM_OC_Stop_IT(&htim3, TIM_CHANNEL_4);
 
-			HAL_GPIO_WritePin(Fake_Sig_GPIO_Port, Fake_Sig_Pin, GPIO_PIN_RESET);
-			HAL_GPIO_WritePin(Origin_Sig_GPIO_Port, Origin_Sig_Pin, GPIO_PIN_SET);
+			HAL_GPIO_WritePin(Fake_Rx_GPIO_Port, Fake_Rx_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(Fake_Tx_GPIO_Port, Fake_Tx_Pin, GPIO_PIN_RESET);
+
+			HAL_GPIO_WritePin(Origin_Rx_GPIO_Port, Origin_Rx_Pin, GPIO_PIN_SET);
+			HAL_GPIO_WritePin(Origin_Tx_GPIO_Port, Origin_Tx_Pin, GPIO_PIN_SET);
 
 			button_flag = 0;
 		}
