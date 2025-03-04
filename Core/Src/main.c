@@ -21,6 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h>
 #include <string.h>
 /* USER CODE END Includes */
 
@@ -41,96 +42,26 @@
 
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim2;
-TIM_HandleTypeDef htim3;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
-
-/* Unlock Signal Start */
-uint16_t rx_unlock_time[17] = {18, 4396, 237, 132, 23, 3480, 121, 790, 90, 4450, 121, 790, 23, 18430, 23, 424, 127};
-uint8_t rx_unlock_data[17][7] = {
-		{0xAA, 0xF2, 0x03, 0x5A, 0x00, 0x00, 0x5A},
-		{0xAA, 0xF3, 0x03, 0x51, 0x48, 0x00, 0x19},
-		{0xAA, 0xF4, 0x03, 0x51, 0x56, 0x00, 0x07},
-		{0xAA, 0xF5, 0x03, 0x50, 0x00, 0x00, 0x50},
-		{0xAA, 0xF6, 0x03, 0x50, 0x09, 0x00, 0x59},
-		{0xAA, 0xF7, 0x03, 0x50, 0x08, 0x00, 0x58},
-		{0xAA, 0xF8, 0x03, 0x50, 0x0A, 0x00, 0x5A},
-		{0xAA, 0xF9, 0x03, 0x50, 0x00, 0x00, 0x50},
-		{0xAA, 0xFA, 0x03, 0x50, 0x06, 0x00, 0x56},
-		{0xAA, 0xFB, 0x03, 0x50, 0x02, 0x00, 0x52},
-		{0xAA, 0xFC, 0x03, 0x50, 0x0A, 0x00, 0x5A},
-		{0xAA, 0xFD, 0x03, 0x50, 0x00, 0x00, 0x50},
-		{0xAA, 0xFE, 0x03, 0x50, 0x10, 0x00, 0x40},
-		{0xAA, 0xFF, 0x03, 0x50, 0x00, 0x00, 0x50},
-		{0xAA, 0x00, 0x03, 0x50, 0x00, 0x00, 0x40}, // 50
-		{0xAA, 0x01, 0x03, 0x51, 0x53, 0x00, 0x02},
-		{0xAA, 0x02, 0x03, 0x50, 0x00, 0x00, 0x50} // 2 block
-//		{0xAA, 0x02, 0x03, 0x50, 0x00, 0x00, 0xFC} // 1 block
+uint8_t uart_buf;
+uint8_t unlock_data[10][7] = {
+		{0xAA, 0x00, 0x03, 0x51, 0x48, 0x00, 0x19},
+		{0xAA, 0x00, 0x03, 0x51, 0x56, 0x00, 0x07},
+		{0xAA, 0x00, 0x03, 0x50, 0x00, 0x00, 0x50},
+		{0xAA, 0x00, 0x03, 0x50, 0x09, 0x00, 0x59},
+		{0xAA, 0x00, 0x03, 0x50, 0x08, 0x00, 0x58},
+		{0xAA, 0x00, 0x03, 0x50, 0x0A, 0x00, 0x5A},
+		{0xAA, 0x00, 0x03, 0x50, 0x00, 0x00, 0x50},
+		{0xAA, 0x00, 0x03, 0x50, 0x06, 0x00, 0x56},
+		{0xAA, 0x00, 0x03, 0x50, 0x02, 0x00, 0x52},
+		{0xAA, 0x00, 0x03, 0x50, 0x0A, 0x00, 0x5A}
 };
-
-uint16_t tx_unlock_time[7] = {1, 18, 4422, 298, 3522, 25944, 9600};
-uint8_t tx_unlock_data[7][7] = {
-		{0xE0},
-		{0xAA, 0x53, 0x03, 0x53, 0x4E, 0x00, 0x1D}, // 4C 00 1F
-		{0xAA, 0x54, 0x03, 0x48, 0x28, 0x00, 0x60},
-		{0xAA, 0x55, 0x03, 0x56, 0x02, 0x03, 0x57}, // 02 56 // 05 51
-		{0xAA, 0x56, 0x03, 0x53, 0x0E, 0x00, 0x5D}, // 0C 00 5F
-		{0xAA, 0x57, 0x03, 0x53, 0x0C, 0x00, 0x5F},
-		{0xFF}
-};
-
-/* Unlock Signal End */
-/*
- *
- *
- *
- */
-/* Lock Signal Start */
-uint16_t rx_lock_time[18] = {57, 2470, 2550, 16700, 17000, 17190, 17260, 20720, 20900, 21750, 21910, 26220, 26400, 27250, 27320, 45820, 54820, 55010}; // 마지막 데이터 2개 -23000 적용(65500 오버플로우 방지)
-uint8_t rx_lock_data[18][7] = {
-		{0xAA, 0x03, 0x03, 0x5A, 0x00, 0x00, 0x5A},
-		{0xAA, 0x04, 0x03, 0x50, 0x00, 0x00, 0x50}, // 연속_1
-		{0xAA, 0x05, 0x03, 0x50, 0x10, 0x00, 0x40}, // 연속_1
-		{0xAA, 0x06, 0x03, 0x51, 0x48, 0x00, 0x19},
-		{0xAA, 0x07, 0x03, 0x51, 0x56, 0x00, 0x07},
-		{0xAA, 0x08, 0x03, 0x50, 0x00, 0x00, 0x50}, // 연속_2
-		{0xAA, 0x09, 0x03, 0x50, 0x06, 0x00, 0x56}, // 연속_2
-		{0xAA, 0x0A, 0x03, 0x50, 0x02, 0x00, 0x52},
-		{0xAA, 0x0B, 0x03, 0x50, 0x0A, 0x00, 0x5A},
-		{0xAA, 0x0C, 0x03, 0x50, 0x00, 0x00, 0x50},
-		{0xAA, 0x0D, 0x03, 0x50, 0x09, 0x00, 0x59},
-		{0xAA, 0x0E, 0x03, 0x50, 0x08, 0x00, 0x58},
-		{0xAA, 0x0F, 0x03, 0x50, 0x0A, 0x00, 0x5A},
-		{0xAA, 0x10, 0x03, 0x50, 0x00, 0x00, 0x50}, // 연속_3
-		{0xAA, 0x11, 0x03, 0x50, 0x20, 0x00, 0x70}, // 연속_3
-		{0xAA, 0x12, 0x03, 0x50, 0x00, 0x00, 0x50},
-		{0xAA, 0x13, 0x03, 0x51, 0x53, 0x00, 0x02},
-		{0xAA, 0x14, 0x03, 0x50, 0x00, 0x00, 0x50} // 2 block
-//		{0xAA, 0x14, 0x03, 0x50, 0x00, 0x00, 0xFC} // 1 block
-};
-
-uint16_t tx_lock_time[8] = {1, 40, 100, 16730, 17080, 20350, 54860, 64170}; // 마지막 데이터 2개 -23000 적용(65500 오버플로우 방지)
-uint8_t tx_lock_data[8][7] = {
-		{0xE0},
-		{0xAA, 0x58, 0x03, 0x5A, 0x00, 0x00, 0x5A}, // 연속_1
-		{0xAA, 0x59, 0x03, 0x53, 0x0E, 0x00, 0x5D}, // 연속_1
-		{0xAA, 0x5A, 0x03, 0x48, 0x28, 0x00, 0x60},
-		{0xAA, 0x5B, 0x03, 0x56, 0x02, 0x15, 0x41},
-		{0xAA, 0x5C, 0x03, 0x53, 0x4E, 0x00, 0x1D},
-		{0xAA, 0x5D, 0x03, 0x53, 0x4E, 0x00, 0x1D},
-		{0xFF}
-};
-/* Lock Signal End */
-
-_Bool run_flag;
-uint8_t rx_data = 0x27;
-uint8_t tx_data = 0x36;
-uint8_t rx_status, tx_status;
-
+uint8_t status, cnt_1, cnt_2;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -140,9 +71,9 @@ static void MX_USART2_UART_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_TIM2_Init(void);
-static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin);
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart);
 void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim);
 /* USER CODE END PFP */
 
@@ -184,10 +115,11 @@ int main(void)
   MX_USART3_UART_Init();
   MX_USART1_UART_Init();
   MX_TIM2_Init();
-  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   HAL_GPIO_WritePin(Origin_Rx_GPIO_Port, Origin_Rx_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(Origin_Tx_GPIO_Port, Origin_Tx_Pin, GPIO_PIN_SET);
+
+  HAL_UART_Receive_IT(&huart1, &uart_buf, 1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -252,7 +184,6 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 0 */
 
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
   TIM_OC_InitTypeDef sConfigOC = {0};
 
@@ -265,15 +196,6 @@ static void MX_TIM2_Init(void)
   htim2.Init.Period = 65535;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
   if (HAL_TIM_OC_Init(&htim2) != HAL_OK)
   {
     Error_Handler();
@@ -285,94 +207,28 @@ static void MX_TIM2_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_TIMING;
-  sConfigOC.Pulse = 1;
+  sConfigOC.Pulse = 0;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_OC_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
   {
     Error_Handler();
   }
-  sConfigOC.Pulse = 2250;
   if (HAL_TIM_OC_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
   }
-  sConfigOC.Pulse = 4500;
   if (HAL_TIM_OC_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_OC_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
   {
     Error_Handler();
   }
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
-
-}
-
-/**
-  * @brief TIM3 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM3_Init(void)
-{
-
-  /* USER CODE BEGIN TIM3_Init 0 */
-
-  /* USER CODE END TIM3_Init 0 */
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_OC_InitTypeDef sConfigOC = {0};
-
-  /* USER CODE BEGIN TIM3_Init 1 */
-
-  /* USER CODE END TIM3_Init 1 */
-  htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 6400-1;
-  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 65535;
-  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_OC_Init(&htim3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigOC.OCMode = TIM_OCMODE_TIMING;
-  sConfigOC.Pulse = 1;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_OC_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigOC.Pulse = 2250;
-  if (HAL_TIM_OC_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigOC.Pulse = 4500;
-  if (HAL_TIM_OC_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM3_Init 2 */
-
-  /* USER CODE END TIM3_Init 2 */
 
 }
 
@@ -535,126 +391,124 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-	if (GPIO_Pin == B1_Pin && run_flag == 0) {
-		HAL_GPIO_WritePin(Origin_Rx_GPIO_Port, Origin_Rx_Pin, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(Origin_Tx_GPIO_Port, Origin_Tx_Pin, GPIO_PIN_RESET);
+}
 
-		HAL_GPIO_WritePin(Fake_Rx_GPIO_Port, Fake_Rx_Pin, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(Fake_Tx_GPIO_Port, Fake_Tx_Pin, GPIO_PIN_SET);
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+	if (huart->Instance == USART1) {
+		if (cnt_1 == 3 && uart_buf != 0xAA) {
+			cnt_1 = 4;
 
-		TIM2->CCR1 = rx_unlock_time[rx_status];
-		TIM2->CCR2 = rx_unlock_time[rx_status] + 22;
-		TIM2->CCR3 = rx_unlock_time[rx_status] + 45;
-		TIM2->CNT = 0;
+			unlock_data[0][1] = ++uart_buf;
+		}
+		if (cnt_2 == 3 && uart_buf != 0x5A) {
+			cnt_2 = 4;
 
-		TIM3->CCR1 = tx_unlock_time[tx_status];
-		TIM3->CCR2 = tx_unlock_time[tx_status] + 22;
-		TIM3->CCR3 = tx_unlock_time[tx_status] + 45;
-		TIM3->CNT = 0;
+			TIM2->CCR1 = 4470;
+			TIM2->CCR2 = TIM2->CCR1 + 23;
+			TIM2->CCR3 = TIM2->CCR2 + 23;
+			TIM2->CCR4 = TIM2->CCR3 + 20;
+			TIM2->CNT = 0;
 
-		HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_1);
-		HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_2);
-		HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_3);
+			HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_1);
+			HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_2);
+			HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_3);
+			HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_4);
+		}
+		if (uart_buf == 0xAA) cnt_1++;
+		if (uart_buf == 0x5A) cnt_2++;
 
-		HAL_TIM_OC_Start_IT(&htim3, TIM_CHANNEL_1);
-		HAL_TIM_OC_Start_IT(&htim3, TIM_CHANNEL_2);
-		HAL_TIM_OC_Start_IT(&htim3, TIM_CHANNEL_3);
-
-		run_flag = 1;
+		HAL_UART_Receive_IT(&huart1, &uart_buf, 1);
 	}
 }
 
 void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim->Instance == TIM2) {
 		if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
-			if (rx_status < sizeof(rx_unlock_time) / sizeof(rx_unlock_time[0])) {
-				rx_unlock_data[rx_status][1] = rx_data++;
-				HAL_UART_Transmit_IT(&huart1, rx_unlock_data[rx_status], 7);
-			}
+			HAL_GPIO_WritePin(Fake_Rx_GPIO_Port, Fake_Rx_Pin, GPIO_PIN_SET);
+
+			HAL_UART_Transmit_IT(&huart1, unlock_data[status], 7);
 		}
 		if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2) {
-			if (rx_status < sizeof(rx_unlock_time) / sizeof(rx_unlock_time[0])) {
-				HAL_UART_Transmit_IT(&huart1, rx_unlock_data[rx_status], 7);
-			}
+			HAL_UART_Transmit_IT(&huart1, unlock_data[status], 7);
 		}
 		if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_3) {
-			if (rx_status < sizeof(rx_unlock_time) / sizeof(rx_unlock_time[0])) {
-				if (rx_status == sizeof(rx_unlock_time) / sizeof(rx_unlock_time[0]) - 1) {
-					rx_unlock_data[16][6] = 0xFC;
-					HAL_UART_Transmit_IT(&huart1, rx_unlock_data[rx_status], 7);
-				} else {
-					HAL_UART_Transmit_IT(&huart1, rx_unlock_data[rx_status], 7);
-				}
-			}
-			if (rx_status == sizeof(rx_unlock_time) / sizeof(rx_unlock_time[0])) {
+			HAL_UART_Transmit_IT(&huart1, unlock_data[status], 7);
+		}
+		if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_4) {
+			if (status == 0) {
+				status = 1;
+
+				TIM2->CCR1 = 231;
+				TIM2->CCR2 = TIM2->CCR1 + 23;
+				TIM2->CCR3 = TIM2->CCR2 + 23;
+				TIM2->CCR4 = TIM2->CCR3 + 20;
+			} else if (status == 1) {
+				status = 2;
+
+				TIM2->CCR1 = 126;
+				TIM2->CCR2 = TIM2->CCR1 + 23;
+				TIM2->CCR3 = TIM2->CCR2 + 23;
+				TIM2->CCR4 = TIM2->CCR3 + 20;
+			} else if (status == 2) {
+				status = 3;
+
+				TIM2->CCR1 = 22;
+				TIM2->CCR2 = TIM2->CCR1 + 23;
+				TIM2->CCR3 = TIM2->CCR2 + 23;
+				TIM2->CCR4 = TIM2->CCR3 + 20;
+			} else if (status == 3) {
+				status = 4;
+
+				TIM2->CCR1 = 3384;
+				TIM2->CCR2 = TIM2->CCR1 + 23;
+				TIM2->CCR3 = TIM2->CCR2 + 23;
+				TIM2->CCR4 = TIM2->CCR3 + 20;
+			} else if (status == 4) {
+				status = 5;
+
+				TIM2->CCR1 = 115;
+				TIM2->CCR2 = TIM2->CCR1 + 23;
+				TIM2->CCR3 = TIM2->CCR2 + 23;
+				TIM2->CCR4 = TIM2->CCR3 + 20;
+			} else if (status == 5) {
+				status = 6;
+
+				TIM2->CCR1 = 784;
+				TIM2->CCR2 = TIM2->CCR1 + 23;
+				TIM2->CCR3 = TIM2->CCR2 + 23;
+				TIM2->CCR4 = TIM2->CCR3 + 20;
+			} else if (status == 6) {
+				status = 7;
+
+				TIM2->CCR1 = 26;
+				TIM2->CCR2 = TIM2->CCR1 + 23;
+				TIM2->CCR3 = TIM2->CCR2 + 23;
+				TIM2->CCR4 = TIM2->CCR3 + 20;
+			} else if (status == 7) {
+				status = 8;
+
+				TIM2->CCR1 = 4450;
+				TIM2->CCR2 = TIM2->CCR1 + 23;
+				TIM2->CCR3 = TIM2->CCR2 + 23;
+				TIM2->CCR4 = TIM2->CCR3 + 20;
+			} else if (status == 8) {
+				status = 9;
+
+				TIM2->CCR1 = 106;
+				TIM2->CCR2 = TIM2->CCR1 + 23;
+				TIM2->CCR3 = TIM2->CCR2 + 23;
+				TIM2->CCR4 = TIM2->CCR3 + 20;
+			} else {
 				HAL_TIM_OC_Stop_IT(&htim2, TIM_CHANNEL_1);
 				HAL_TIM_OC_Stop_IT(&htim2, TIM_CHANNEL_2);
 				HAL_TIM_OC_Stop_IT(&htim2, TIM_CHANNEL_3);
-
-				HAL_GPIO_WritePin(Fake_Rx_GPIO_Port, Fake_Rx_Pin, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(Origin_Rx_GPIO_Port, Origin_Rx_Pin, GPIO_PIN_SET);
-
-				run_flag = 0;
-				rx_status = 0;
-				rx_unlock_data[16][6] = 0x50;
-			} else {
-				rx_status++;
-				TIM2->CCR1 = rx_unlock_time[rx_status];
-				TIM2->CCR2 = rx_unlock_time[rx_status] + 22;
-				TIM2->CCR3 = rx_unlock_time[rx_status] + 45;
-				TIM2->CNT = 0;
+				HAL_TIM_OC_Stop_IT(&htim2, TIM_CHANNEL_4);
 			}
-		}
-	}
-	if (htim->Instance == TIM3) {
-		if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
-			if (tx_status < sizeof(tx_unlock_time) / sizeof(tx_unlock_time[0])) {
-				if (tx_unlock_data[tx_status][1]) {
-					tx_unlock_data[tx_status][1] = tx_data++;
-					HAL_UART_Transmit_IT(&huart3, tx_unlock_data[tx_status], 7);
-				} else {
-					HAL_UART_Transmit_IT(&huart3, tx_unlock_data[tx_status], 1);
 
-					if (tx_status == 0) {
-						tx_status++;
-						TIM3->CCR1 = tx_unlock_time[tx_status];
-						TIM3->CCR2 = tx_unlock_time[tx_status] + 22;
-						TIM3->CCR3 = tx_unlock_time[tx_status] + 45;
-						TIM3->CNT = 0;
-					}
-				}
-			}
-		}
-		if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2) {
-			if (tx_status < sizeof(tx_unlock_time) / sizeof(tx_unlock_time[0])) {
-				if (tx_unlock_data[tx_status][1]) {
-					HAL_UART_Transmit_IT(&huart3, tx_unlock_data[tx_status], 7);
-				}
-			}
-		}
-		if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_3) {
-			if (tx_status < sizeof(tx_unlock_time) / sizeof(tx_unlock_time[0])) {
-				if (tx_unlock_data[tx_status][1]) {
-					HAL_UART_Transmit_IT(&huart3, tx_unlock_data[tx_status], 7);
-				}
-			}
-			if (tx_status == sizeof(tx_unlock_time) / sizeof(tx_unlock_time[0])) {
-				HAL_TIM_OC_Stop_IT(&htim3, TIM_CHANNEL_1);
-				HAL_TIM_OC_Stop_IT(&htim3, TIM_CHANNEL_2);
-				HAL_TIM_OC_Stop_IT(&htim3, TIM_CHANNEL_3);
+			TIM2->CNT = 0;
+			unlock_data[status][1] = unlock_data[0][1] + status;
 
-				HAL_GPIO_WritePin(Fake_Tx_GPIO_Port, Fake_Tx_Pin, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(Origin_Tx_GPIO_Port, Origin_Tx_Pin, GPIO_PIN_SET);
-
-				run_flag = 0;
-				tx_status = 0;
-			} else {
-				tx_status++;
-				TIM3->CCR1 = tx_unlock_time[tx_status];
-				TIM3->CCR2 = tx_unlock_time[tx_status] + 22;
-				TIM3->CCR3 = tx_unlock_time[tx_status] + 45;
-				TIM3->CNT = 0;
-			}
+			HAL_GPIO_WritePin(Fake_Rx_GPIO_Port, Fake_Rx_Pin, GPIO_PIN_RESET);
 		}
 	}
 }
