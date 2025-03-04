@@ -45,10 +45,10 @@ TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
-UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
 uint8_t uart_buf;
+uint16_t unlock_time[10] = {4470, 231, 126, 22, 3384, 115, 784, 26, 4450, 106};
 uint8_t unlock_data[10][7] = {
 		{0xAA, 0x00, 0x03, 0x51, 0x48, 0x00, 0x19},
 		{0xAA, 0x00, 0x03, 0x51, 0x56, 0x00, 0x07},
@@ -61,6 +61,7 @@ uint8_t unlock_data[10][7] = {
 		{0xAA, 0x00, 0x03, 0x50, 0x02, 0x00, 0x52},
 		{0xAA, 0x00, 0x03, 0x50, 0x0A, 0x00, 0x5A}
 };
+_Bool run_flag;
 uint8_t status, cnt_1, cnt_2;
 /* USER CODE END PV */
 
@@ -68,7 +69,6 @@ uint8_t status, cnt_1, cnt_2;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
-static void MX_USART3_UART_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
@@ -112,13 +112,9 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
-  MX_USART3_UART_Init();
   MX_USART1_UART_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  HAL_GPIO_WritePin(Origin_Rx_GPIO_Port, Origin_Rx_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(Origin_Tx_GPIO_Port, Origin_Tx_Pin, GPIO_PIN_SET);
-
   HAL_UART_Receive_IT(&huart1, &uart_buf, 1);
   /* USER CODE END 2 */
 
@@ -299,39 +295,6 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
-  * @brief USART3 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART3_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART3_Init 0 */
-
-  /* USER CODE END USART3_Init 0 */
-
-  /* USER CODE BEGIN USART3_Init 1 */
-
-  /* USER CODE END USART3_Init 1 */
-  huart3.Instance = USART3;
-  huart3.Init.BaudRate = 57600;
-  huart3.Init.WordLength = UART_WORDLENGTH_8B;
-  huart3.Init.StopBits = UART_STOPBITS_2;
-  huart3.Init.Parity = UART_PARITY_NONE;
-  huart3.Init.Mode = UART_MODE_TX_RX;
-  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART3_Init 2 */
-
-  /* USER CODE END USART3_Init 2 */
-
-}
-
-/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -349,10 +312,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, LD2_Pin|Fake_Rx_Pin|Fake_Tx_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, Origin_Rx_Pin|Origin_Tx_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, LD2_Pin|Fake_Tx_Pin|Fake_Sig_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -367,19 +327,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : Fake_Rx_Pin Fake_Tx_Pin */
-  GPIO_InitStruct.Pin = Fake_Rx_Pin|Fake_Tx_Pin;
+  /*Configure GPIO pins : Fake_Tx_Pin Fake_Sig_Pin */
+  GPIO_InitStruct.Pin = Fake_Tx_Pin|Fake_Sig_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : Origin_Rx_Pin Origin_Tx_Pin */
-  GPIO_InitStruct.Pin = Origin_Rx_Pin|Origin_Tx_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
@@ -391,10 +344,16 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+	if (GPIO_Pin == B1_Pin && run_flag == 0) {
+		run_flag = 1;
+		HAL_UART_Receive_IT(&huart1, &uart_buf, 1);
+		HAL_GPIO_WritePin(Fake_Sig_GPIO_Port, Fake_Sig_Pin, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(Fake_Sig_GPIO_Port, Fake_Sig_Pin, GPIO_PIN_RESET);
+	}
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-	if (huart->Instance == USART1) {
+	if (huart->Instance == USART1 && run_flag == 1) {
 		if (cnt_1 == 3 && uart_buf != 0xAA) {
 			cnt_1 = 4;
 
@@ -403,11 +362,11 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 		if (cnt_2 == 3 && uart_buf != 0x5A) {
 			cnt_2 = 4;
 
+			TIM2->CNT = 0;
 			TIM2->CCR1 = 4470;
 			TIM2->CCR2 = TIM2->CCR1 + 23;
 			TIM2->CCR3 = TIM2->CCR2 + 23;
 			TIM2->CCR4 = TIM2->CCR3 + 20;
-			TIM2->CNT = 0;
 
 			HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_1);
 			HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_2);
@@ -424,7 +383,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim->Instance == TIM2) {
 		if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
-			HAL_GPIO_WritePin(Fake_Rx_GPIO_Port, Fake_Rx_Pin, GPIO_PIN_SET);
+			HAL_GPIO_WritePin(Fake_Tx_GPIO_Port, Fake_Tx_Pin, GPIO_PIN_SET);
 
 			HAL_UART_Transmit_IT(&huart1, unlock_data[status], 7);
 		}
@@ -435,80 +394,27 @@ void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim) {
 			HAL_UART_Transmit_IT(&huart1, unlock_data[status], 7);
 		}
 		if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_4) {
-			if (status == 0) {
-				status = 1;
-
-				TIM2->CCR1 = 231;
-				TIM2->CCR2 = TIM2->CCR1 + 23;
-				TIM2->CCR3 = TIM2->CCR2 + 23;
-				TIM2->CCR4 = TIM2->CCR3 + 20;
-			} else if (status == 1) {
-				status = 2;
-
-				TIM2->CCR1 = 126;
-				TIM2->CCR2 = TIM2->CCR1 + 23;
-				TIM2->CCR3 = TIM2->CCR2 + 23;
-				TIM2->CCR4 = TIM2->CCR3 + 20;
-			} else if (status == 2) {
-				status = 3;
-
-				TIM2->CCR1 = 22;
-				TIM2->CCR2 = TIM2->CCR1 + 23;
-				TIM2->CCR3 = TIM2->CCR2 + 23;
-				TIM2->CCR4 = TIM2->CCR3 + 20;
-			} else if (status == 3) {
-				status = 4;
-
-				TIM2->CCR1 = 3384;
-				TIM2->CCR2 = TIM2->CCR1 + 23;
-				TIM2->CCR3 = TIM2->CCR2 + 23;
-				TIM2->CCR4 = TIM2->CCR3 + 20;
-			} else if (status == 4) {
-				status = 5;
-
-				TIM2->CCR1 = 115;
-				TIM2->CCR2 = TIM2->CCR1 + 23;
-				TIM2->CCR3 = TIM2->CCR2 + 23;
-				TIM2->CCR4 = TIM2->CCR3 + 20;
-			} else if (status == 5) {
-				status = 6;
-
-				TIM2->CCR1 = 784;
-				TIM2->CCR2 = TIM2->CCR1 + 23;
-				TIM2->CCR3 = TIM2->CCR2 + 23;
-				TIM2->CCR4 = TIM2->CCR3 + 20;
-			} else if (status == 6) {
-				status = 7;
-
-				TIM2->CCR1 = 26;
-				TIM2->CCR2 = TIM2->CCR1 + 23;
-				TIM2->CCR3 = TIM2->CCR2 + 23;
-				TIM2->CCR4 = TIM2->CCR3 + 20;
-			} else if (status == 7) {
-				status = 8;
-
-				TIM2->CCR1 = 4450;
-				TIM2->CCR2 = TIM2->CCR1 + 23;
-				TIM2->CCR3 = TIM2->CCR2 + 23;
-				TIM2->CCR4 = TIM2->CCR3 + 20;
-			} else if (status == 8) {
-				status = 9;
-
-				TIM2->CCR1 = 106;
+			status++;
+			unlock_data[status][1] = unlock_data[0][1] + status;
+			TIM2->CNT = 0;
+			if (status >= 1 && status <= 9) {
+				TIM2->CCR1 = unlock_time[status];
 				TIM2->CCR2 = TIM2->CCR1 + 23;
 				TIM2->CCR3 = TIM2->CCR2 + 23;
 				TIM2->CCR4 = TIM2->CCR3 + 20;
 			} else {
+				HAL_GPIO_WritePin(Fake_Tx_GPIO_Port, Fake_Tx_Pin, GPIO_PIN_RESET);
+
 				HAL_TIM_OC_Stop_IT(&htim2, TIM_CHANNEL_1);
 				HAL_TIM_OC_Stop_IT(&htim2, TIM_CHANNEL_2);
 				HAL_TIM_OC_Stop_IT(&htim2, TIM_CHANNEL_3);
 				HAL_TIM_OC_Stop_IT(&htim2, TIM_CHANNEL_4);
+
+				run_flag = 0;
+				status = 0;
+				cnt_1 = 0;
+				cnt_2 = 0;
 			}
-
-			TIM2->CNT = 0;
-			unlock_data[status][1] = unlock_data[0][1] + status;
-
-			HAL_GPIO_WritePin(Fake_Rx_GPIO_Port, Fake_Rx_Pin, GPIO_PIN_RESET);
 		}
 	}
 }
