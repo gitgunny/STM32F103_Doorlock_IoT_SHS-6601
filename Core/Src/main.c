@@ -32,7 +32,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define UART_BUF_SIZE 32
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -45,9 +45,9 @@ TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
+UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
-uint8_t uart_buf;
 uint16_t unlock_time[10] = {4470, 231, 126, 22, 3384, 115, 784, 26, 4450, 106};
 uint8_t unlock_data[10][7] = {
 		{0xAA, 0x00, 0x03, 0x51, 0x48, 0x00, 0x19},
@@ -63,6 +63,9 @@ uint8_t unlock_data[10][7] = {
 };
 _Bool run_flag;
 uint8_t status, cnt_1, cnt_2;
+uint8_t uart_buf_1, uart_buf_2, uart_buf_3;
+uint8_t uart_str_2[UART_BUF_SIZE], uart_str_3[UART_BUF_SIZE];
+uint16_t uart_idx;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -71,6 +74,7 @@ static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN PFP */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin);
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart);
@@ -114,8 +118,11 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USART1_UART_Init();
   MX_TIM2_Init();
+  MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
-  HAL_UART_Receive_IT(&huart1, &uart_buf, 1);
+  HAL_UART_Receive_IT(&huart1, &uart_buf_1, 1);
+  HAL_UART_Receive_IT(&huart2, &uart_buf_2, 1);
+  HAL_UART_Receive_IT(&huart3, &uart_buf_3, 1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -295,6 +302,39 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
+  * @brief USART3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART3_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART3_Init 0 */
+
+  /* USER CODE END USART3_Init 0 */
+
+  /* USER CODE BEGIN USART3_Init 1 */
+
+  /* USER CODE END USART3_Init 1 */
+  huart3.Instance = USART3;
+  huart3.Init.BaudRate = 9600;
+  huart3.Init.WordLength = UART_WORDLENGTH_8B;
+  huart3.Init.StopBits = UART_STOPBITS_1;
+  huart3.Init.Parity = UART_PARITY_NONE;
+  huart3.Init.Mode = UART_MODE_TX_RX;
+  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART3_Init 2 */
+
+  /* USER CODE END USART3_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -346,20 +386,52 @@ static void MX_GPIO_Init(void)
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	if (GPIO_Pin == B1_Pin && run_flag == 0) {
 		run_flag = 1;
-		HAL_UART_Receive_IT(&huart1, &uart_buf, 1);
+		HAL_UART_Receive_IT(&huart1, &uart_buf_1, 1);
 		HAL_GPIO_WritePin(Fake_Sig_GPIO_Port, Fake_Sig_Pin, GPIO_PIN_SET);
 		HAL_GPIO_WritePin(Fake_Sig_GPIO_Port, Fake_Sig_Pin, GPIO_PIN_RESET);
 	}
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+    if(huart->Instance == USART2) {
+        if(uart_buf_2 == '\n') {
+            uart_str_2[uart_idx] = '\n';
+            uart_idx = 0;
+            HAL_UART_Transmit_IT(&huart3, uart_str_2, strlen((char *)uart_str_2));
+        } else {
+            uart_str_2[uart_idx++] = uart_buf_2;
+            if(uart_idx >= UART_BUF_SIZE) {
+                uart_idx = 0;
+            }
+        }
+        HAL_UART_Receive_IT(&huart2, &uart_buf_2, 1);
+    }
+	if (huart->Instance == USART3) {
+		if(uart_buf_3 == '\n') {
+			uart_str_3[uart_idx] = '\n';
+			uart_idx = 0;
+			if (strcmp((char *)uart_str_3, "GUNNY\n") == 0) {
+				run_flag = 1;
+				HAL_UART_Receive_IT(&huart1, &uart_buf_1, 1);
+				HAL_GPIO_WritePin(Fake_Sig_GPIO_Port, Fake_Sig_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(Fake_Sig_GPIO_Port, Fake_Sig_Pin, GPIO_PIN_RESET);
+			}
+			memset(uart_str_3, 0, sizeof(uart_str_3));
+		} else {
+			uart_str_3[uart_idx++] = uart_buf_3;
+			if(uart_idx >= UART_BUF_SIZE) {
+                uart_idx = 0;
+			}
+		}
+		HAL_UART_Receive_IT(&huart3, &uart_buf_3, 1);
+	}
 	if (huart->Instance == USART1 && run_flag == 1) {
-		if (cnt_1 == 3 && uart_buf != 0xAA) {
+		if (cnt_1 == 3 && uart_buf_1 != 0xAA) {
 			cnt_1 = 4;
 
-			unlock_data[0][1] = ++uart_buf;
+			unlock_data[0][1] = ++uart_buf_1;
 		}
-		if (cnt_2 == 3 && uart_buf != 0x5A) {
+		if (cnt_2 == 3 && uart_buf_1 != 0x5A) {
 			cnt_2 = 4;
 
 			TIM2->CNT = 0;
@@ -373,10 +445,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 			HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_3);
 			HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_4);
 		}
-		if (uart_buf == 0xAA) cnt_1++;
-		if (uart_buf == 0x5A) cnt_2++;
+		if (uart_buf_1 == 0xAA) cnt_1++;
+		if (uart_buf_1 == 0x5A) cnt_2++;
 
-		HAL_UART_Receive_IT(&huart1, &uart_buf, 1);
+		HAL_UART_Receive_IT(&huart1, &uart_buf_1, 1);
 	}
 }
 
